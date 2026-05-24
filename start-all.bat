@@ -52,9 +52,9 @@ start "QQ-NapCat" cmd /c "chcp 65001>nul & "%NAPCAT_DIR%\NapCatWinBootMain.exe""
 
 timeout /t 2 /nobreak >nul
 
-echo [2/3] Starting Classifier + WebUI...
+echo [2/3] Starting WebUI...
 start "QQ-WebUI" cmd /c "cd /d %~dp0 && node napcat-webui.js"
-start "QQ-Classifier" cmd /c "cd /d %~dp0 && node napcat-classifier.js"
+echo       Classifier runs as NapCat plugin (auto-loaded)
 
 timeout /t 3 /nobreak >nul
 

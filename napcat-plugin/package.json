@@ -1,0 +1,7 @@
+{
+  "name": "qq-filer-classifier",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "description": "QQ群文件自动分类器"
+}

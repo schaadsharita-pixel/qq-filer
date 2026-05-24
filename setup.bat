@@ -26,14 +26,17 @@ call npm install
 
 echo [3/4] Configuring NapCat OneBot...
 
+set NAPCAT_BASE=
 set NAPCAT_CFG=
 
-if exist "%USERPROFILE%\Desktop\NapCat.Shell.Windows.OneKey\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat\config" (
-    set "NAPCAT_CFG=%USERPROFILE%\Desktop\NapCat.Shell.Windows.OneKey\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat\config"
+if exist "%USERPROFILE%\Desktop\NapCat.Shell.Windows.OneKey\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat" (
+    set "NAPCAT_BASE=%USERPROFILE%\Desktop\NapCat.Shell.Windows.OneKey\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat"
+    set "NAPCAT_CFG=%NAPCAT_BASE%\config"
 )
-if "%NAPCAT_CFG%"=="" (
-    if exist "%USERPROFILE%\Desktop\NapCatInstaller\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat\config" (
-        set "NAPCAT_CFG=%USERPROFILE%\Desktop\NapCatInstaller\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat\config"
+if "%NAPCAT_BASE%"=="" (
+    if exist "%USERPROFILE%\Desktop\NapCatInstaller\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat" (
+        set "NAPCAT_BASE=%USERPROFILE%\Desktop\NapCatInstaller\NapCat.44498.Shell\versions\9.9.26-44498\resources\app\napcat"
+        set "NAPCAT_CFG=%NAPCAT_BASE%\config"
     )
 )
 
@@ -51,7 +54,14 @@ if "%NAPCAT_CFG%"=="" (
         echo   Writing webui.json (no token)...
         copy /Y "%~dp0napcat\webui.json" "%NAPCAT_CFG%\webui.json" >nul
     )
-    echo   OK: OneBot + WebUI configured
+
+    echo   Deploying classifier plugin...
+    if not exist "%NAPCAT_BASE%\plugins\qq-filer-classifier" mkdir "%NAPCAT_BASE%\plugins\qq-filer-classifier"
+    copy /Y "%~dp0napcat-plugin\package.json" "%NAPCAT_BASE%\plugins\qq-filer-classifier\package.json" >nul
+    copy /Y "%~dp0napcat-plugin\index.js" "%NAPCAT_BASE%\plugins\qq-filer-classifier\index.js" >nul
+    echo   OK: Plugin deployed
+
+    echo   OK: OneBot + WebUI + Plugin configured
 )
 
 echo [4/4] Done!
