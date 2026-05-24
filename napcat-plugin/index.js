@@ -1,15 +1,14 @@
 /**
- * QQ群文件分类器 — NapCat 插件版 (ESM)
+ * QQ群文件分类器 — NapCat 插件版 (CommonJS)
  *
  * 自动下载群文件并按类型归类到本地文件夹
  * 支持 /scan /status /help 群命令
  */
 
-import http from 'node:http';
-import https from 'node:https';
-import path from 'node:path';
-import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+const http = require('http');
+const https = require('https');
+const path = require('path');
+const fs = require('fs');
 
 // ════════════════════════════════════════════════════════════════
 // 配置
@@ -203,14 +202,11 @@ let ctx = null;
 // 插件导出
 // ════════════════════════════════════════════════════════════════
 
-export async function plugin_init(pluginCtx) {
+async function plugin_init(pluginCtx) {
   ctx = pluginCtx;
   logger = ctx.logger;
 
-  CONFIG.outputDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '..', '..', '..', 'QQ群文件分类'
-  );
+  CONFIG.outputDir = path.resolve(__dirname, '..', '..', '..', 'QQ群文件分类');
 
   logger.info('');
   logger.info('╔══════════════════════════════════════════╗');
@@ -225,15 +221,13 @@ export async function plugin_init(pluginCtx) {
   logger.info('   /status — 查看状态');
   logger.info('');
 
-  // 显示已登录账号
   try {
     const loginInfo = await ctx.actions.call('get_login_info');
     logger.info(`✅ 已登录账号: ${loginInfo.nickname} (${loginInfo.user_id})`);
   } catch {}
 }
 
-export async function plugin_onmessage(pluginCtx, event) {
-  // 只处理群消息
+async function plugin_onmessage(pluginCtx, event) {
   if (event.message_type !== 'group') return;
 
   const raw = event.raw_message || '';
@@ -286,8 +280,7 @@ export async function plugin_onmessage(pluginCtx, event) {
   }
 }
 
-export async function plugin_onevent(pluginCtx, event) {
-  // 群文件上传
+async function plugin_onevent(pluginCtx, event) {
   if (event.post_type === 'notice' && event.notice_type === 'group_upload' && event.file) {
     const { group_id, file } = event;
     logger.info(`📤 群 ${group_id}: ${file.name} (${fmtSize(file.size)})`);
@@ -298,3 +291,5 @@ export async function plugin_onevent(pluginCtx, event) {
     await handleFile(file, group_id, name);
   }
 }
+
+module.exports = { plugin_init, plugin_onmessage, plugin_onevent };
