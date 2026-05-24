@@ -221,13 +221,7 @@ async function plugin_init(pluginCtx) {
   logger.info('   /status — 查看状态');
   logger.info('');
 
-  // 构建配置 UI 模板
-  plugin_config_ui = ctx.NapCatConfig.combine(
-    ctx.NapCatConfig.html('<div style="padding:10px;background:rgba(0,0,0,0.03);border-radius:8px"><h3>📁 QQ群文件分类器</h3><p>自动下载群文件并按类型归类到本地文件夹</p></div>'),
-    ctx.NapCatConfig.text('outputDir', '📂 输出目录', CONFIG.outputDir, '文件保存的根目录'),
-    ctx.NapCatConfig.number('maxFileSize', '📦 单文件上限 (MB)', CONFIG.maxFileSize / (1024*1024), '超过此大小的文件跳过', false),
-  );
-
+  // 配置 UI 在 module 顶层已定义（静态），此处仅加载已保存的配置
   try {
     if (fs.existsSync(ctx.configPath)) {
       const saved = JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8'));
@@ -326,6 +320,10 @@ const plugin_set_config = async (newConfig) => {
   } catch {}
 };
 
-let plugin_config_ui = [];
+const plugin_config_ui = [
+  { type: 'html', html: '<div style="padding:10px;background:rgba(0,0,0,0.03);border-radius:8px"><h3>📁 QQ群文件分类器</h3><p>自动下载群文件并按类型归类到本地文件夹</p></div>' },
+  { type: 'text', key: 'outputDir', name: '📂 输出目录', defaultValue: CONFIG.outputDir, description: '文件保存的根目录' },
+  { type: 'number', key: 'maxFileSize', name: '📦 单文件上限 (MB)', defaultValue: CONFIG.maxFileSize / (1024*1024), description: '超过此大小的文件跳过' },
+];
 
 module.exports = { plugin_init, plugin_onmessage, plugin_onevent, plugin_get_config, plugin_set_config, plugin_config_ui };
