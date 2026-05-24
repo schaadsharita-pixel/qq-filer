@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QQ群文件分类器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+  .header { background: linear-gradient(135deg, #07c160, #06ad56); color: #fff; padding: 20px; text-align: center; }
+  .header h1 { font-size: 22px; margin-bottom: 4px; }
+  .header p { font-size: 13px; opacity: 0.9; }
+  .container { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+  .card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .card h3 { font-size: 15px; margin-bottom: 12px; color: #666; }
+  
+  .input-group { display: flex; gap: 8px; }
+  .input-group input { flex:1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
+  .input-group input:focus { border-color: #07c160; }
+  button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
+  .btn-primary { background: #07c160; color: #fff; }
+  .btn-primary:hover { background: #06ad56; }
+  .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+
+  #qrcode-box { text-align: center; display: none; }
+  #qrcode-box img { width: 220px; height: 220px; border: 1px solid #eee; border-radius: 8px; }
+  #qrcode-box p { color: #888; font-size: 13px; margin-top: 8px; }
+
+  .verify-box { display: none; }
+  .verify-box .input-group { margin-top: 8px; }
+
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+  .status-idle { background: #eee; color: #999; }
+  .status-qr { background: #fff3e0; color: #e65100; }
+  .status-slider { background: #fff3e0; color: #e65100; }
+  .status-sms { background: #e3f2fd; color: #1565c0; }
+  .status-online { background: #e8f5e9; color: #2e7d32; }
+  .status-error { background: #ffebee; color: #c62828; }
+
+  .group-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .group-item:last-child { border-bottom: none; }
+  .group-name { font-size: 15px; }
+  .group-files { font-size: 13px; color: #888; }
+
+  .log-box { background: #1a1a2e; color: #0f0; padding: 12px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 300px; overflow-y: auto; line-height: 1.6; }
+  .log-box .time { color: #888; }
+  .log-box .ok { color: #0f0; }
+  .log-box .err { color: #f44; }
+
+  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .file-cat { background: #f9f9f9; border-radius: 6px; padding: 10px; }
+  .file-cat h4 { font-size: 13px; color: #666; margin-bottom: 6px; }
+  .file-cat ul { list-style: none; font-size: 12px; color: #333; }
+  .file-cat li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .hidden { display: none; }
+  .mt-8 { margin-top: 8px; }
+  .mb-8 { margin-bottom: 8px; }
+  .text-center { text-align: center; }
+  .text-sm { font-size: 13px; color: #888; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📁 QQ群文件分类器</h1>
+  <p>自动监听群文件 → 下载 → 按类型归类</p>
+</div>
+
+<div class="container">
+
+  <!-- 第1步: 登录 -->
+  <div class="card" id="login-card">
+    <h3>🔑 登录 QQ</h3>
+    <div class="input-group" style="flex-direction: column; gap: 8px;">
+      <input type="number" id="uin-input" placeholder="请输入 QQ 号" />
+      <input type="password" id="pwd-input" placeholder="密码（留空则扫码登录）" />
+      <button class="btn-primary" id="login-btn" onclick="login()">登录</button>
+    </div>
+    <div class="mt-8 text-sm" id="login-status"></div>
+
+    <!-- 二维码 -->
+    <div id="qrcode-box" class="mt-8">
+      <img id="qrcode-img" />
+      <p>📱 请用手机 QQ 扫描二维码</p>
+    </div>
+
+    <!-- 滑动验证 -->
+    <div id="slider-box" class="verify-box mt-8">
+      <div class="text-sm mb-8">🔐 需要滑动验证，请输入 ticket：</div>
+      <div class="input-group">
+        <input type="text" id="ticket-input" placeholder="粘贴 ticket" />
+        <button class="btn-primary btn-sm" onclick="submitSlider()">提交</button>
+      </div>
+    </div>
+
+    <!-- 短信验证 -->
+    <div id="sms-box" class="verify-box mt-8">
+      <div class="text-sm mb-8">📱 已发送验证码到手机：</div>
+      <div class="input-group">
+        <input type="text" id="sms-input" placeholder="输入验证码" />
+        <button class="btn-primary btn-sm" onclick="submitSms()">提交</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 第2步: 群列表 -->
+  <div class="card hidden" id="groups-card">
+    <h3>📋 群列表</h3>
+    <div id="group-list"></div>
+  </div>
+
+  <!-- 第3步: 文件目录 -->
+  <div class="card hidden" id="files-card">
+    <h3>📂 已分类的文件</h3>
+    <div id="file-list"></div>
+  </div>
+
+  <!-- 运行日志 -->
+  <div class="card">
+    <h3>📜 运行日志</h3>
+    <div class="log-box" id="log-box">
+      <div class="time">等待启动...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = '';
+
+async function login() {
+  const uin = document.getElementById('uin-input').value;
+  if (!uin) return alert('请输入 QQ 号');
+
+  document.getElementById('login-btn').disabled = true;
+  document.getElementById('login-status').textContent = '⏳ 登录中...';
+
+  const password = document.getElementById('pwd-input').value;
+
+  const res = await fetch(API + '/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uin: parseInt(uin), password }),
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    document.getElementById('login-status').textContent = '❌ ' + data.error;
+    document.getElementById('login-btn').disabled = false;
+  }
+}
+
+async function submitSlider() {
+  const ticket = document.getElementById('ticket-input').value;
+  if (!ticket) return;
+  const res = await fetch(API + '/api/slider', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticket }),
+  });
+  const data = await res.json();
+  if (data.ok) document.getElementById('slider-box').style.display = 'none';
+}
+
+async function submitSms() {
+  const code = document.getElementById('sms-input').value;
+  if (!code) return;
+  const res = await fetch(API + '/api/sms', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  const data = await res.json();
+  if (data.ok) document.getElementById('sms-box').style.display = 'none';
+}
+
+async function scanGroup(gid) {
+  const btn = document.querySelector(`#group-list .btn-scan[data-gid="${gid}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = '扫描中...'; }
+  await fetch(API + '/api/scan/' + gid, { method: 'POST' });
+  if (btn) { btn.disabled = false; btn.textContent = '扫描'; }
+}
+
+async function pollStatus() {
+  try {
+    const res = await fetch(API + '/api/status');
+    const data = await res.json();
+    updateUI(data);
+  } catch {}
+  setTimeout(pollStatus, 2000);
+}
+
+function updateUI(data) {
+  // 登录状态
+  const loginStatus = document.getElementById('login-status');
+  const badge = `<span class="status-badge status-${data.status}">${statusLabel(data.status)}</span>`;
+  
+  if (data.status === 'online') {
+    loginStatus.innerHTML = `✅ 已登录 ${badge}`;
+    document.getElementById('login-card').querySelector('h3').textContent = '✅ 已登录';
+    document.getElementById('qrcode-box').style.display = 'none';
+    document.getElementById('groups-card').classList.remove('hidden');
+    document.getElementById('files-card').classList.remove('hidden');
+  } else if (data.status === 'qr') {
+    loginStatus.innerHTML = `📱 等待扫码 ${badge}`;
+    document.getElementById('qrcode-box').style.display = 'block';
+    document.getElementById('qrcode-img').src = API + '/api/qrcode?' + Date.now();
+    document.getElementById('slider-box').style.display = 'none';
+    document.getElementById('sms-box').style.display = 'none';
+  } else if (data.status === 'slider') {
+    loginStatus.innerHTML = `🔐 需要滑动验证 ${badge}`;
+    document.getElementById('slider-box').style.display = 'block';
+  } else if (data.status === 'sms') {
+    loginStatus.innerHTML = `📱 短信验证 ${badge}`;
+    document.getElementById('sms-box').style.display = 'block';
+  } else if (data.status === 'error') {
+    loginStatus.innerHTML = `❌ ${data.errorMsg} ${badge}`;
+    document.getElementById('login-btn').disabled = false;
+  }
+
+  // 群列表
+  if (data.groups && data.groups.length > 0) {
+    const list = document.getElementById('group-list');
+    list.innerHTML = data.groups.map(g => `
+      <div class="group-item">
+        <div>
+          <div class="group-name">${escapeHtml(g.name)}</div>
+          <div class="group-files">📄 ${g.files} 个文件</div>
+        </div>
+        <button class="btn-primary btn-sm btn-scan" data-gid="${g.gid}" onclick="scanGroup(${g.gid})">扫描</button>
+      </div>
+    `).join('');
+  }
+
+  // 日志
+  if (data.scanLog && data.scanLog.length > 0) {
+    const logBox = document.getElementById('log-box');
+    logBox.innerHTML = data.scanLog.map(line => {
+      const cls = line.includes('❌') ? 'err' : line.includes('✅') ? 'ok' : '';
+      return `<div class="${cls}">${escapeHtml(line)}</div>`;
+    }).join('');
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+}
+
+function statusLabel(s) {
+  return { idle: '空闲', qr: '等待扫码', slider: '滑块验证', sms: '短信验证', online: '在线', error: '错误' }[s] || s;
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// 启动轮询
+pollStatus();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+# QQ群文件分类器 - 自定义规则配置
+# 用户可在此扩展或覆盖默认分类规则
+# 格式:
+#   类别名:
+#     icon: 图标(可选)
+#     rules:
+#       - exts: [.后缀1, .后缀2]
+#         keywords: [关键词1, 关键词2]
+#     subCategories:
+#       子类别名:
+#         rules:
+#           - exts: [.后缀]
+#             keywords: [关键词]
+
+# 示例 - PDF 按关键词细分:
+# 文档:
+#   子类别:
+#     电子书:
+#       规则:
+#         - 后缀: [.pdf, .epub, .mobi]
+# 图片:
+#   icon: 🖼️
+#   rules:
+#     - exts: [.jpg, .png]
+# 代码:
+#   rules:
+#     - exts: [.py, .js, .ts]
+
+# 注意: 默认规则硬编码在 src/classifier/categories.ts 中
+# 此 YAML 为将来扩展预留，当前 P0 版本暂未实现 YAML 动态加载

@@ -1,0 +1,14 @@
+{
+  "rules": [
+    { "keyword": "作业", "folder": "作业", "enabled": true },
+    { "keyword": "报告", "folder": "报告", "enabled": true },
+    { "keyword": "照片", "folder": "照片", "enabled": true },
+    { "keyword": "截图", "folder": "截图", "enabled": true },
+    { "keyword": "合同", "folder": "合同", "enabled": true },
+    { "keyword": "安装", "folder": "安装包", "enabled": true },
+    { "keyword": "视频", "folder": "视频", "enabled": true },
+    { "keyword": "课件", "folder": "课件", "enabled": true },
+    { "keyword": "模板", "folder": "模板", "enabled": true }
+  ],
+  "whitelist": ["重要", "合同", "协议", "模板", "安装包"]
+}

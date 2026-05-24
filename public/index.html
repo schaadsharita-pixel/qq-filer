@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>QQ群文件分类器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F2F2F7;color:#1C1C1E;font-size:15px;-webkit-font-smoothing:antialiased}
+
+/* ── Header ── */
+.header{background:rgba(249,249,249,.98);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);padding:12px 16px 8px;border-bottom:1px solid rgba(0,0,0,.08);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+.header h1{font-size:20px;font-weight:600;color:#000}
+.header-right{display:flex;gap:8px;align-items:center}
+.header-btn{background:none;border:none;color:#007AFF;font-size:15px;font-weight:500;cursor:pointer;padding:6px 8px;border-radius:8px}
+.header-btn:hover{background:rgba(0,122,255,.08)}
+.header-btn:disabled{color:#C7C7CC;cursor:default}
+.refresh-btn{width:32px;height:32px;border:none;border-radius:50%;background:#F2F2F7;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#007AFF;transition:transform .3s}
+.refresh-btn:active{transform:rotate(180deg)}
+
+/* ── Segmented Control ── */
+.container{max-width:680px;margin:0 auto;padding:8px 12px}
+.segmented{background:#E5E5EA;border-radius:9px;padding:2px;display:flex;margin-bottom:8px}
+.seg-item{flex:1;text-align:center;padding:6px 0;font-size:13px;font-weight:500;border:none;border-radius:7px;cursor:pointer;color:#6C6C70;background:transparent;transition:all .25s}
+.seg-item.on{background:#fff;color:#007AFF;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.seg-item:not(.on):hover{color:#1C1C1E}
+
+/* ── Card ── */
+.card{background:#fff;border-radius:12px;padding:4px 0;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.04),0 2px 8px rgba(0,0,0,.03)}
+.card-title{font-size:13px;font-weight:500;color:#8E8E93;padding:10px 16px 6px;letter-spacing:.02em;text-transform:uppercase}
+.section{display:none}
+.section.on{display:block}
+
+/* ── Group List ── */
+.grp{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:background .2s}
+.grp:last-child{border-bottom:none}
+.grp:active{background:#F2F2F7}
+.grp-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.grp-icon{width:36px;height:36px;border-radius:8px;background:#F2F2F7;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.grp-name{font-size:15px;font-weight:500;color:#1C1C1E}
+.grp-meta{font-size:12px;color:#8E8E93;margin-top:1px}
+.grp-actions{display:flex;gap:4px;flex-shrink:0}
+.grp-btn{background:none;border:none;color:#8E8E93;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.grp-btn:active{background:#F2F2F7}
+.grp-btn.blue{color:#007AFF}
+.pin-star{cursor:pointer;color:#C7C7CC;font-size:18px;transition:color .2s;margin-right:2px}
+.pin-star.on{color:#FF9500}
+
+/* ── File Tree ── */
+.folder-row{padding:10px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s;border-bottom:1px solid rgba(0,0,0,.03);background:rgba(249,249,249,.5)}
+.folder-row:hover{background:#EEF1F5}
+.folder-row:active{background:#E5E8EC}
+.folder-arrow{font-size:9px;color:#8E8E93;transition:transform .2s;width:12px;text-align:center;flex-shrink:0}
+.folder-arrow.open{transform:rotate(90deg)}
+.folder-icon{flex-shrink:0;font-size:16px;width:22px;text-align:center}
+.folder-name{font-size:14px;font-weight:600;color:#1C1C1E;letter-spacing:.01em}
+.folder-children{display:none;border-left:2px solid #E5E5EA;margin-left:30px}
+.folder-children.open{display:block}
+
+/* ── File Row ── */
+.file-row{display:flex;align-items:center;padding:8px 14px;transition:background .15s;position:relative;border-bottom:1px solid rgba(0,0,0,.02)}
+.file-row:last-child{border-bottom:none}
+.file-row:hover{background:#F9F9F9}
+.file-row.editing{padding-left:0}
+.file-row .cb-wrap{width:0;overflow:hidden;transition:width .25s ease;flex-shrink:0}
+.file-row.editing .cb-wrap{width:40px;padding-left:16px}
+.file-cb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border:2px solid #C7C7CC;border-radius:50%;cursor:pointer;transition:all .2s;flex-shrink:0}
+.file-cb:checked{border-color:#007AFF;background:#007AFF url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") center/14px no-repeat}
+.file-icon{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-right:8px}
+.file-info{flex:1;min-width:0}
+.file-name{font-size:15px;font-weight:400;color:#1C1C1E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-meta{font-size:12px;color:#8E8E93;margin-top:1px;display:flex;gap:8px;align-items:center}
+.file-size{font-weight:300}
+.file-actions{display:flex;gap:2px;flex-shrink:0;align-items:center}
+.file-move-btn{background:none;border:none;color:#8E8E93;font-size:13px;cursor:pointer;padding:4px 6px;border-radius:6px;opacity:0;transition:opacity .2s,background .2s}
+.file-row:hover .file-move-btn{opacity:1}
+.file-move-btn:active{background:#F2F2F7;color:#007AFF}
+.file-move-always{background:none;border:none;color:#8E8E93;font-size:13px;cursor:pointer;padding:4px 6px;border-radius:6px}
+.file-move-always:active{background:#F2F2F7;color:#007AFF}
+.file-more{background:none;border:none;color:#C7C7CC;font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;font-weight:600;letter-spacing:2px}
+
+/* ── Swipe Action ── */
+.swipe-container{overflow:hidden;position:relative}
+.swipe-content{display:flex;transition:transform .2s}
+.swipe-content .file-row{flex-shrink:0;width:100%}
+.swipe-action{display:flex;align-items:stretch;background:#FF3B30;border-radius:0 12px 12px 0}
+.swipe-action button{border:none;color:#fff;font-size:14px;font-weight:500;padding:0 20px;cursor:pointer;background:transparent;white-space:nowrap}
+.swipe-action.action-move{background:#007AFF}
+.swipe-action.action-move button{color:#fff}
+
+/* ── Edit Toolbar ── */
+.edit-toolbar{position:fixed;bottom:0;left:0;right:0;background:rgba(249,249,249,.96);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,.08);padding:10px 16px 24px;display:flex;justify-content:space-between;align-items:center;transform:translateY(100px);transition:transform .3s ease;z-index:20}
+.edit-toolbar.show{transform:translateY(0)}
+.edit-toolbar .et-left{font-size:14px;color:#1C1C1E}
+.edit-toolbar .et-left strong{font-weight:600}
+.edit-toolbar .et-right{display:flex;gap:10px}
+.et-btn{background:none;border:none;font-size:15px;font-weight:500;cursor:pointer;padding:8px 16px;border-radius:8px}
+.et-btn:active{opacity:.7}
+.et-btn.primary{background:#007AFF;color:#fff}
+.et-btn.secondary{color:#007AFF;background:#F2F2F7}
+
+/* ── Modal ── */
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;z-index:30;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(40px)}to{transform:translateY(0)}}
+.modal-box{background:#fff;border-radius:14px 14px 0 0;width:100%;max-width:680px;max-height:70vh;overflow-y:auto;padding:20px 16px 28px;animation:slideUp .3s}
+.modal-handle{width:36px;height:4px;border-radius:2px;background:#D1D1D6;margin:0 auto 14px}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:4px;color:#000}
+.modal-sub{font-size:13px;color:#8E8E93;margin-bottom:14px}
+.modal-box .folder-option{padding:10px 12px;border-radius:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:15px;transition:background .15s}
+.modal-box .folder-option:hover{background:#F2F2F7}
+.modal-box .folder-option.selected{background:#E8F0FE;font-weight:500;color:#007AFF}
+.modal-btns{display:flex;gap:8px;margin-top:14px}
+.modal-btns .mbtn{flex:1;padding:12px;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer}
+.modal-btns .mbtn.primary{background:#007AFF;color:#fff}
+.modal-btns .mbtn.primary:active{background:#0066D6}
+.modal-btns .mbtn.secondary{background:#F2F2F7;color:#007AFF}
+.modal-btns .mbtn.secondary:active{background:#E5E5EA}
+
+/* ── Log ── */
+.log-box{background:#1C1C1E;color:#39FF14;padding:12px 14px;border-radius:10px;font:11px/1.5 'SF Mono','Menlo','Courier New',monospace;max-height:300px;overflow-y:auto}
+.log-box div{padding:1px 0}
+
+/* ── File Browser Tab (已分类文件) ── */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;padding:8px 12px}
+.cat-item{background:#F9F9F9;border-radius:10px;padding:10px}
+.cat-item h4{font-size:12px;font-weight:600;color:#8E8E93;margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em}
+.cat-item ul{list-style:none;font-size:12px;color:#3C3C43}
+.cat-item li{padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}
+
+/* ── States ── */
+.empty-state{text-align:center;padding:40px 20px;color:#8E8E93}
+.empty-state .icon{font-size:48px;margin-bottom:10px}
+.empty-state .text{font-size:15px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>QQ群文件分类器</h1>
+  <div class="header-right">
+    <button class="refresh-btn" onclick="refreshTree()" title="刷新">↻</button>
+    <button class="header-btn" id="editBtn" onclick="toggleEdit()">编辑</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="segmented">
+    <button class="seg-item on" data-tab="0" onclick="switchTab(0)">群列表</button>
+    <button class="seg-item" data-tab="1" onclick="switchTab(1)">文件浏览</button>
+    <button class="seg-item" data-tab="2" onclick="switchTab(2)">规则</button>
+    <button class="seg-item" data-tab="3" onclick="switchTab(3)">日志</button>
+  </div>
+
+  <div class="section on" id="tab0"></div>
+  <div class="section" id="tab1"></div>
+  <div class="section" id="tab2">
+    <div class="card"><div class="card-title">自动分类规则</div>
+      <div style="padding:4px 12px 12px">
+        <p style="font-size:13px;color:#8E8E93;margin-bottom:10px">文件名包含关键词时，自动移到对应的文件夹</p>
+        <div id="rulesList"></div>
+        <div style="margin-top:10px;display:flex;gap:6px">
+          <button class="header-btn" onclick="addRule()" style="font-size:13px">+ 添加规则</button>
+          <button class="header-btn" onclick="saveRules()" style="color:#fff;background:#007AFF;padding:6px 16px">保存</button>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="card-title">🧹 清理白名单</div>
+      <div style="padding:4px 12px 12px">
+        <p style="font-size:13px;color:#8E8E93;margin-bottom:8px">文件名包含以下关键词的文件不会被自动清理</p>
+        <div id="whitelistTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:6px">
+          <input id="wlInput" style="flex:1;border:1px solid #E5E5EA;border-radius:8px;padding:6px 10px;font-size:14px" placeholder="输入关键词回车添加">
+          <button class="header-btn" onclick="addWlTag()" style="font-size:13px">添加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section" id="tab3">
+    <div class="card" style="padding:12px"><div class="log-box" id="log"><div style="color:#666">等待操作...</div></div></div>
+  </div>
+</div>
+
+<!-- Edit Toolbar -->
+<div class="edit-toolbar" id="editToolbar">
+  <div class="et-left">已选 <strong id="selCount">0</strong> 个文件</div>
+  <div class="et-right">
+    <button class="et-btn secondary" onclick="selAll()">全选</button>
+    <button class="et-btn primary" onclick="batchMove()">批量移动</button>
+  </div>
+</div>
+
+<script>
+var API='',log=[],curTab=0,curGid=0,curName='',treeData=null,editing=false,moveTarget=null;
+
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function logAdd(m){var t=new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});log.push(t+' '+m);renderLog()}
+function renderLog(){var el=document.getElementById('log');el.innerHTML=log.map(function(l){return '<div>'+esc(l)+'</div>'}).join('');el.scrollTop=el.scrollHeight}
+function fmt(b){if(b>=1073741824)return(b/1073741824).toFixed(1)+'GB';if(b>=1048576)return(b/1048576).toFixed(1)+'MB';if(b>=1024)return(b/1024).toFixed(1)+'KB';return b+'B'}
+function iconFor(name){var e=name.split('.').pop().toLowerCase();var m={'zip':'📦','rar':'📦','7z':'📦','tar':'📦','gz':'📦','pdf':'📄','doc':'📄','docx':'📄','txt':'📄','md':'📄','xls':'📊','xlsx':'📊','csv':'📊','png':'🖼','jpg':'🖼','jpeg':'🖼','gif':'🖼','mp4':'🎬','avi':'🎬','mov':'🎬','mkv':'🎬','exe':'⚙️','msi':'⚙️','apk':'⚙️','ppt':'📽','pptx':'📽','mp3':'🎵','wav':'🎵','flac':'🎵','js':'💻','ts':'💻','py':'💻','java':'💻','cpp':'💻','c':'💻','go':'💻','rs':'💻'};return m[e]||'📋'}
+function getPins(){try{return JSON.parse(localStorage.getItem('pin_groups')||'[]')}catch(e){return[]}}
+
+function switchTab(i){
+  curTab=i;
+  document.querySelectorAll('.seg-item').forEach(function(e,i2){e.classList.toggle('on',i2===i)});
+  document.querySelectorAll('.section').forEach(function(e,i2){e.classList.toggle('on',i2===i)});
+  if(i===0) loadGroups();           // 切回群列表时刷新
+  if(i===2) renderLog();
+  if(i===1&&curGid&&!window._loadingTree) refreshTree()
+}
+
+// ── 群列表 ──
+async function loadGroups(){
+  try{
+    var info=await(await fetch(API+'/api/info')).json();
+    var groups=await(await fetch(API+'/api/groups')).json();
+    if(groups.error){document.getElementById('tab0').innerHTML='<div class="empty-state"><div class="icon">⚠️</div><div class="text">'+esc(groups.error)+'</div></div>';return}
+    var pins=getPins();
+    groups.sort(function(a,b){var pa=pins.includes(a.id),pb=pins.includes(b.id);if(pa&&!pb)return -1;if(!pa&&pb)return 1;return 0});
+    var h='<div class="card"><div class="card-title">'+(info.nickname||'QQ')+' · '+groups.length+' 个群</div>';
+    groups.forEach(function(g){
+      var p=pins.includes(g.id);
+      h+='<div class="grp" onclick="openGroup('+g.id+',\''+esc(g.name||'')+'\')"><div class="grp-left">'+
+        '<div class="grp-icon">💬</div><div><div class="grp-name">'+esc(g.name||'未命名')+'</div><div class="grp-meta">'+(g.localFiles?'📥 '+g.localFiles+' 个已下载':'点击浏览查看文件')+'</div></div></div>'+
+        '<div class="grp-actions"><span class="pin-star'+(p?' on':'')+'" onclick="event.stopPropagation();setPin('+g.id+','+(!p)+')">★</span>'+
+        '<button class="grp-btn" onclick="event.stopPropagation();autoMove('+g.id+',\''+esc(g.name||'')+'\')" style="color:#FF9500">智能</button>'+
+        '<button class="grp-btn" onclick="event.stopPropagation();autoClean('+g.id+',\''+esc(g.name||'')+'\')" style="color:#FF3B30">清理</button>'+
+        '<button class="grp-btn blue" onclick="event.stopPropagation();openGroup('+g.id+',\''+esc(g.name||'')+'\')">浏览</button></div></div>'
+    });
+    h+='</div>';document.getElementById('tab0').innerHTML=h;
+  }catch(e){document.getElementById('tab0').innerHTML='<div class="empty-state"><div class="icon">⚠️</div><div class="text">'+esc(e.message)+'</div></div>'}
+}
+function setPin(gid,on){var p=getPins(),i=p.indexOf(gid);if(on&&i<0)p.push(gid);if(!on&&i>=0)p.splice(i,1);localStorage.setItem('pin_groups',JSON.stringify(p));loadGroups()}
+
+function openGroup(gid,gname){
+  curGid=gid;curName=gname;switchTab(1);
+  document.getElementById('tab1').innerHTML='<div class="empty-state"><div class="icon">⏳</div><div class="text">加载中...</div></div>';
+  loadTree(gid,gname);
+}
+
+// ── 文件树 ──
+async function loadTree(gid,gname){
+  if(window._loadingTree)return;
+  window._loadingTree=true;
+  try{
+    var r=await(await fetch(API+'/api/scan-tree/'+gid,{method:'POST'})).json();
+    if(!r.ok){document.getElementById('tab1').innerHTML='<div class="empty-state"><div class="icon">⚠️</div><div class="text">'+esc(r.error)+'</div></div>';return}
+    treeData=r.tree;renderTree(r.tree,document.getElementById('tab1'),gid,gname);
+  }catch(e){document.getElementById('tab1').innerHTML='<div class="empty-state"><div class="icon">⚠️</div><div class="text">'+esc(e.message)+'</div></div>'}
+  window._loadingTree=false;
+}
+
+function renderTree(node,el,gid,gname){
+  function hasAny(n){
+    var fc=n.children||n;
+    if(fc.files&&fc.files.length)return true;
+    if(fc.folders)for(var i=0;i<fc.folders.length;i++){if(hasAny(fc.folders[i]))return true}
+    return false;
+  }
+  var h='<div class="card"><div class="card-title">'+esc(gname)+'</div><div id="treeRoot">';
+  h+=renderNode(node,0);
+  h+='</div></div>';
+  if(!hasAny(node))h='<div class="empty-state"><div class="icon">📭</div><div class="text">暂无文件</div></div>';
+  el.innerHTML=h;
+}
+
+function renderNode(node,depth){
+  var n=node.children||node;
+  var h='';
+  if(n.folders) n.folders.forEach(function(f){
+    var fc=f.children||{};var hasFiles=(fc.files&&fc.files.length)||(fc.folders&&fc.folders.length);
+    var autoOpen=hasFiles?' open':'';
+    h+='<div><div class="folder-row" onclick="toggleFd(this)" style="padding-left:'+(16+depth*20)+'px">'+
+      '<span class="folder-arrow'+autoOpen+'">▶</span><span class="folder-icon">📁</span><span class="folder-name">'+esc(f.name)+'</span></div>'+
+      '<div class="folder-children'+autoOpen+'">'+renderNode(f,depth+1)+'</div></div>';
+  });
+  if(n.files) n.files.forEach(function(f){
+    var fid=n.id||'/';
+    h+='<div class="file-row" data-id="'+esc(f.id)+'" data-name="'+esc(f.name)+'" data-folder="'+fid+'">'+
+      '<div class="cb-wrap"><input type="checkbox" class="file-cb" onchange="updSel()"></div>'+
+      '<div class="file-icon" style="background:#'+(f.id.charCodeAt(0)%5===0?'E8F0FE':'F2F2F7')+'">'+iconFor(f.name)+'</div>'+
+      '<div class="file-info"><div class="file-name">'+esc(f.name)+'</div>'+
+      '<div class="file-meta"><span class="file-size">'+fmt(f.size)+'</span></div></div>'+
+      '<div class="file-actions"><button class="file-move-btn" onclick="moveSingle(\''+esc(f.id)+'\',\''+esc(f.name)+'\',\''+fid+'\')">移动</button>'+
+      '<button class="file-more" onclick="moreActions(event,\''+esc(f.id)+'\',\''+esc(f.name)+'\',\''+fid+'\')">···</button></div></div>';
+  });
+  return h;
+}
+
+function toggleFd(el){
+  el.querySelector('.folder-arrow').classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+
+function updSel(){
+  var n=document.querySelectorAll('#treeRoot .file-cb:checked').length;
+  document.getElementById('selCount').textContent=n;
+}
+
+function selAll(){
+  document.querySelectorAll('#treeRoot .file-cb').forEach(function(c){c.checked=true});updSel()
+}
+
+function toggleEdit(){
+  editing=!editing;
+  document.getElementById('editBtn').textContent=editing?'完成':'编辑';
+  document.querySelectorAll('.file-row').forEach(function(r){r.classList.toggle('editing',editing)});
+  document.getElementById('editToolbar').classList.toggle('show',editing);
+  if(!editing){document.querySelectorAll('#treeRoot .file-cb').forEach(function(c){c.checked=false});updSel()}
+}
+
+// ── 移动 ──
+function showMoveDialog(title,files,cb){
+  var h='<div class="modal" id="moveModal"><div class="modal-box"><div class="modal-handle"></div><div class="modal-title">'+title+'</div><div class="modal-sub">选择目标文件夹</div><div id="fp">';
+  h+=buildFolders(treeData,0);
+  h+='</div><div class="modal-btns"><button class="mbtn secondary" onclick="closeModal()">取消</button><button class="mbtn primary" onclick="confirmMove()">移动</button></div></div></div>';
+  var d=document.createElement('div');d.innerHTML=h;document.body.appendChild(d);
+  moveTarget={files:files,cb:cb};
+  setTimeout(function(){var el=document.querySelector('.folder-option[data-path="/"]');if(el)el.classList.add('selected')},50);
+}
+function buildFolders(node,depth){
+  var h='<div class="folder-option" data-path="/" onclick="selFolder(this,\'/\')" style="padding-left:'+(12+depth*20)+'px">📁 根目录</div>';
+  if(node.folders) node.folders.forEach(function(f){
+    var fp='/'+f.id;
+    h+='<div class="folder-option" data-path="'+fp+'" onclick="selFolder(this,\''+fp+'\')" style="padding-left:'+(12+(depth+1)*20)+'px">📁 '+esc(f.name)+'</div>';
+    h+=buildFolders(f,depth+1);
+  });
+  return h;
+}
+function selFolder(el,path){
+  document.querySelectorAll('.folder-option').forEach(function(e){e.classList.remove('selected')});
+  el.classList.add('selected');
+  if(moveTarget)moveTarget.targetDir=path;
+}
+function closeModal(){var m=document.getElementById('moveModal');if(m)m.remove()}
+async function confirmMove(){
+  if(!moveTarget||!moveTarget.targetDir){return}
+  var td=moveTarget.targetDir;var fl=moveTarget.files;closeModal();
+  logAdd('移动 '+fl.length+' 个文件...');
+  try{
+    var r=await(await fetch(API+'/api/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      group_id:curGid,files:fl.map(function(f){return{file_id:f.id,current_parent_directory:f.folder||'/',target_parent_directory:td}}),target_parent_directory:td
+    })})).json();
+    if(r.ok){logAdd('已移动: 成功 '+r.success+' 个'+(r.fail?', 失败 '+r.fail+' 个':''));if(moveTarget.cb)moveTarget.cb();loadTree(curGid,curName);toggleEdit()}
+    else logAdd('移动失败');
+  }catch(e){logAdd('移动失败: '+e.message)}
+}
+function moveSingle(id,name,folder){
+  showMoveDialog('移动「'+esc(name)+'」',[{id:id,name:name,folder:folder}])
+}
+function batchMove(){
+  var cbs=document.querySelectorAll('#treeRoot .file-cb:checked');
+  if(!cbs.length){return}
+  var files=[];
+  cbs.forEach(function(c){var r=c.closest('.file-row');files.push({id:r.dataset.id,name:r.dataset.name,folder:r.dataset.folder})});
+  showMoveDialog('移动 '+files.length+' 个文件',files,function(){document.querySelectorAll('#treeRoot .file-cb').forEach(function(c){c.checked=false});updSel()})
+}
+function moreActions(e,id,name,folder){
+  showMoveDialog('移动「'+esc(name)+'」',[{id:id,name:name,folder:folder}])
+}
+
+// ── 自动清理 ──
+async function autoClean(gid,gname){
+  if(!confirm('清理 '+gname+' 中超过30天的文件？'))return;
+  logAdd('🧹 清理 '+gname+'...');
+  try{
+    var r=await(await fetch(API+'/api/auto-clean/'+gid,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+    if(r.ok)logAdd('🧹 '+gname+': 共 '+r.total+' 个，删除 '+r.deleted+' 个'+(r.skipped?', (未超时)跳过 '+r.skipped+' 个':'')+(r.protected?', (白名单保护)跳过 '+r.protected+' 个':''));
+    else logAdd('❌ '+(r.error||'失败'));
+  }catch(e){logAdd('❌ '+e.message)}
+  if(curGid==gid&&curTab==1)loadTree(curGid,curName);
+  setTimeout(loadGroups,2000);
+}
+
+// ── 智能自动分类 ──
+async function autoMove(gid,gname){
+  logAdd('🤖 智能分类 '+gname+'...');
+  try{
+    var r=await(await fetch(API+'/api/auto-move/'+gid,{method:'POST'})).json();
+    if(r.ok){
+      logAdd('✅ '+gname+': 共 '+r.total+' 个文件，移动 '+r.moved+' 个'+(r.skipped?', (无规则)跳过 '+r.skipped+' 个':'')+(r.notFound?', (无对应文件夹)跳过 '+r.notFound+' 个':'')+(r.message?' ('+r.message+')':''));
+      if(r.samples&&r.samples.length)logAdd('📄 文件名示例: '+r.samples.join(', '));
+    }
+    else logAdd('❌ '+(r.error||'失败'));
+  }catch(e){logAdd('❌ '+e.message)}
+  // 刷新群列表 + 如果当前在看这个群的文件树，也刷新
+  if(curGid==gid&&curTab==1)loadTree(curGid,curName);
+  setTimeout(loadGroups,2000);
+}
+
+// ── 规则管理 ──
+var rulesData=[],wlData=[];
+
+async function loadRules(){
+  try{
+    var d=await(await fetch(API+'/api/rules')).json();
+    rulesData=d.rules||[];
+    wlData=d.whitelist||[];
+    renderRules();renderWl();
+  }catch(e){}
+}
+
+function renderRules(){
+  var el=document.getElementById('rulesList');
+  if(!rulesData||!rulesData.length){el.innerHTML='<div style="color:#8E8E93;font-size:14px;padding:20px 0;text-align:center">暂无规则，点下方添加</div>';return}
+  el.innerHTML=rulesData.map(function(r,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.04)">'+
+      '<input type="checkbox" '+(r.enabled?'checked':'')+' onchange="rulesData['+i+'].enabled=this.checked" style="width:18px;height:18px">'+
+      '<input value="'+esc(r.keyword)+'" onchange="rulesData['+i+'].keyword=this.value" style="flex:1;border:1px solid #E5E5EA;border-radius:6px;padding:6px 8px;font-size:14px" placeholder="关键词">'+
+      '<span style="color:#8E8E93">→</span>'+
+      '<input value="'+esc(r.folder)+'" onchange="rulesData['+i+'].folder=this.value" style="flex:1;border:1px solid #E5E5EA;border-radius:6px;padding:6px 8px;font-size:14px" placeholder="目标文件夹">'+
+      '<button onclick="rulesData.splice('+i+',1);renderRules()" style="background:none;border:none;color:#FF3B30;font-size:18px;cursor:pointer;padding:4px">×</button></div>'
+  }).join('');
+}
+
+function renderWl(){
+  var el=document.getElementById('whitelistTags');
+  if(!wlData||!wlData.length){el.innerHTML='<div style="color:#8E8E93;font-size:13px">暂无白名单关键词</div>';return}
+  el.innerHTML=wlData.map(function(w,i){
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:#F2F2F7;border-radius:16px;padding:4px 10px;font-size:13px">🔒 '+esc(w)+
+      '<button onclick="wlData.splice('+i+',1);renderWl();saveRules()" style="background:none;border:none;color:#FF3B30;cursor:pointer;font-size:14px;padding:0 2px">×</button></span>'
+  }).join('');
+}
+
+function addRule(){
+  rulesData.push({keyword:'',folder:'',enabled:true});
+  renderRules();
+}
+
+function addWlTag(){
+  var inp=document.getElementById('wlInput');
+  var v=inp.value.trim();
+  if(!v)return;
+  if(wlData.indexOf(v)<0)wlData.push(v);
+  inp.value='';
+  renderWl();saveRules();
+}
+
+// 回车添加白名单
+document.addEventListener('DOMContentLoaded',function(){
+  var inp=document.getElementById('wlInput');
+  if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter'){addWlTag()}});
+});
+
+async function saveRules(){
+  try{
+    await fetch(API+'/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:rulesData,whitelist:wlData})});
+    logAdd('✅ 已保存');
+  }catch(e){logAdd('❌ 保存失败: '+e.message)}
+}
+
+// ── 刷新 ──
+function refreshTree(){if(curGid)loadTree(curGid,curName)}
+
+// ── 全部分类 ──
+async function scanAll(gid,gname){
+  logAdd('扫描 '+gname+'...');
+  try{
+    var r=await(await fetch(API+'/api/scan/'+gid,{method:'POST'})).json();
+    if(!r.ok||!r.files||!r.files.length){logAdd('没有文件');return}
+    logAdd('共 '+r.files.length+' 个文件，开始下载...');
+    for(var i=0;i<r.files.length;i+=20)
+      await(await fetch(API+'/api/classify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gid:gid,files:r.files.slice(i,i+20),category:''})})).catch(function(){});
+    logAdd(gname+' 分类完成');
+  }catch(e){logAdd('Error: '+e.message)}
+  setTimeout(loadGroups,2000);
+}
+
+// ── 智能轮询（只在群列表页刷新，浏览文件时不打扰） ──
+function smartPoll(){
+  // 只在群列表标签页（tab0）时刷新群列表，浏览文件时不轮询
+  if(curTab===0) loadGroups();
+}
+loadGroups();
+loadRules();
+setInterval(smartPoll, 30000);
+</script>
+</body>
+</html>

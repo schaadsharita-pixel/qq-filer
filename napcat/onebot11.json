@@ -1,0 +1,41 @@
+{
+  "network": {
+    "httpServers": [
+      {
+        "name": "http",
+        "enable": true,
+        "port": 3000,
+        "host": "127.0.0.1",
+        "enableCors": true,
+        "enableWebsocket": false,
+        "heartbeatInterval": 30000,
+        "token": "",
+        "debug": false
+      }
+    ],
+    "httpSseServers": [],
+    "httpClients": [],
+    "websocketServers": [
+      {
+        "name": "ws",
+        "enable": true,
+        "port": 3001,
+        "host": "127.0.0.1",
+        "heartbeatInterval": 30000,
+        "token": ""
+      }
+    ],
+    "websocketClients": [],
+    "plugins": []
+  },
+  "musicSignUrl": "",
+  "enableLocalFile2Url": true,
+  "parseMultMsg": false,
+  "imageDownloadProxy": "",
+  "timeout": {
+    "baseTimeout": 10000,
+    "uploadSpeedKBps": 256,
+    "downloadSpeedKBps": 256,
+    "maxTimeout": 1800000
+  }
+}

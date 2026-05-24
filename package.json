@@ -1,0 +1,19 @@
+{
+  "name": "qq-filer",
+  "version": "1.0.0",
+  "description": "QQ群文件分类器 - 对接 NapCat OneBot，支持智能分类、批量移动、自动清理",
+  "main": "napcat-webui.js",
+  "scripts": {
+    "start": "node napcat-webui.js",
+    "classifier": "node napcat-classifier.js"
+  },
+  "author": "DIO",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "ws": "^8.0.0"
+  }
+}

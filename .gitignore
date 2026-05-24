@@ -1,0 +1,8 @@
+node_modules/
+QQ群文件分类/
+dist/
+data/
+*.exe
+*.rar
+*.zip
+auto_rules.json
