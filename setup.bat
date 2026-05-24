@@ -57,8 +57,8 @@ if "%NAPCAT_CFG%"=="" (
 
     echo   Deploying classifier plugin...
     if not exist "%NAPCAT_BASE%\plugins\qq-filer-classifier" mkdir "%NAPCAT_BASE%\plugins\qq-filer-classifier"
+    copy /Y "%~dp0napcat-plugin\package.json" "%NAPCAT_BASE%\plugins\qq-filer-classifier\package.json" >nul
     copy /Y "%~dp0napcat-plugin\index.js" "%NAPCAT_BASE%\plugins\qq-filer-classifier\index.js" >nul
-    if exist "%NAPCAT_BASE%\plugins\qq-filer-classifier\package.json" del "%NAPCAT_BASE%\plugins\qq-filer-classifier\package.json"
     echo   OK: Plugin deployed
 
     echo   OK: OneBot + WebUI + Plugin configured
