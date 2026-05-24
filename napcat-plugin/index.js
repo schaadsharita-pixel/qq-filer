@@ -221,6 +221,21 @@ async function plugin_init(pluginCtx) {
   logger.info('   /status — 查看状态');
   logger.info('');
 
+  // 构建配置 UI 模板
+  plugin_config_ui = ctx.NapCatConfig.combine(
+    ctx.NapCatConfig.html('<div style="padding:10px;background:rgba(0,0,0,0.03);border-radius:8px"><h3>📁 QQ群文件分类器</h3><p>自动下载群文件并按类型归类到本地文件夹</p></div>'),
+    ctx.NapCatConfig.text('outputDir', '📂 输出目录', CONFIG.outputDir, '文件保存的根目录'),
+    ctx.NapCatConfig.number('maxFileSize', '📦 单文件上限 (MB)', CONFIG.maxFileSize / (1024*1024), '超过此大小的文件跳过', false),
+  );
+
+  try {
+    if (fs.existsSync(ctx.configPath)) {
+      const saved = JSON.parse(fs.readFileSync(ctx.configPath, 'utf-8'));
+      if (saved.outputDir) CONFIG.outputDir = saved.outputDir;
+      if (saved.maxFileSize) CONFIG.maxFileSize = saved.maxFileSize;
+    }
+  } catch {}
+
   try {
     const loginInfo = await ctx.actions.call('get_login_info');
     logger.info(`✅ 已登录账号: ${loginInfo.nickname} (${loginInfo.user_id})`);
@@ -292,4 +307,25 @@ async function plugin_onevent(pluginCtx, event) {
   }
 }
 
-module.exports = { plugin_init, plugin_onmessage, plugin_onevent };
+const plugin_get_config = async () => {
+  return {
+    outputDir: CONFIG.outputDir,
+    maxFileSize: CONFIG.maxFileSize / (1024 * 1024),
+  };
+};
+
+const plugin_set_config = async (newConfig) => {
+  if (newConfig.outputDir && newConfig.outputDir !== CONFIG.outputDir) {
+    CONFIG.outputDir = newConfig.outputDir;
+  }
+  if (newConfig.maxFileSize) {
+    CONFIG.maxFileSize = newConfig.maxFileSize * (1024 * 1024);
+  }
+  try {
+    fs.writeFileSync(ctx.configPath, JSON.stringify({ outputDir: CONFIG.outputDir, maxFileSize: CONFIG.maxFileSize }, null, 2));
+  } catch {}
+};
+
+let plugin_config_ui = [];
+
+module.exports = { plugin_init, plugin_onmessage, plugin_onevent, plugin_get_config, plugin_set_config, plugin_config_ui };
