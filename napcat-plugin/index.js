@@ -230,6 +230,16 @@ async function plugin_init(pluginCtx) {
     }
   } catch {}
 
+  // 注册扩展页面
+  ctx.router.page({
+    path: 'dashboard',
+    title: '群文件管理',
+    icon: '📁',
+    htmlFile: 'webui/index.html',
+    description: '浏览和分类群文件',
+  });
+  ctx.router.static('/webui', 'webui');
+
   try {
     const loginInfo = await ctx.actions.call('get_login_info');
     logger.info(`✅ 已登录账号: ${loginInfo.nickname} (${loginInfo.user_id})`);
