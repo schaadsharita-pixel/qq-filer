@@ -55,6 +55,14 @@ function classifyFile(filename) {
   return '📋 其他';
 }
 
+// 判断文件夹名是否本身就是分类名（用于匹配已有分类文件夹）
+function isCategoryName(name) {
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    if (CATEGORIES[i].name === name) return true;
+  }
+  return false;
+}
+
 // ════════════════════════════════════════════════════════════════
 // 工具函数
 // ════════════════════════════════════════════════════════════════
@@ -356,8 +364,7 @@ async function plugin_init(pluginCtx) {
         }
         for (var f of (list.folders || [])) {
           if (catFolderIds[f.folder_name]) continue;
-          var cat = classifyFile(f.folder_name);
-          if (f.folder_name === cat && f.folder_name !== '其他') {
+          if (isCategoryName(f.folder_name)) {
             catFolderIds[f.folder_name] = f.folder_id;
             continue;
           }
@@ -368,8 +375,7 @@ async function plugin_init(pluginCtx) {
       // 先获取根目录
       var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
       for (var f of (root.folders || [])) {
-        var cat = classifyFile(f.folder_name);
-        if (cat === f.folder_name && cat !== '其他') {
+        if (isCategoryName(f.folder_name)) {
           catFolderIds[f.folder_name] = f.folder_id;
         }
       }
