@@ -162,20 +162,14 @@ async function scanGroup(groupId) {
       return;
     }
 
-    await ctx.actions.call('send_group_msg', { group_id: groupId, message: `📊 共 ${allFiles.length} 个文件，正在下载分类...` });
-
-    let ok = 0, fail = 0;
-    for (const file of allFiles) {
-      try {
-        if (file.size > CONFIG.maxFileSize) { fail++; continue; }
-        let name;
-        try { const info = await ctx.actions.call('get_group_info', { group_id: groupId }); name = info.group_name; } catch { name = `群_${groupId}`; }
-        await handleFile(file, groupId, name);
-        ok++;
-      } catch { fail++; }
+    // 按类型统计
+    var catCount = {};
+    for (var file of allFiles) {
+      var cat = classifyFile(file.file_name || file.name || '');
+      catCount[cat] = (catCount[cat] || 0) + 1;
     }
-
-    await ctx.actions.call('send_group_msg', { group_id: groupId, message: `✅ 完成: 成功 ${ok} 个${fail ? '，失败 ' + fail + ' 个' : ''}` });
+    var summary = Object.keys(catCount).map(function(c) { return c + ': ' + catCount[c] + '个'; }).join('\n');
+    await ctx.actions.call('send_group_msg', { group_id: groupId, message: `📊 共 ${allFiles.length} 个文件\n\n📋 分类统计:\n${summary}\n\n💡 发送 /整理 自动归类到群文件夹` });
   } catch (e) {
     await ctx.actions.call('send_group_msg', { group_id: groupId, message: `❌ 扫描失败: ${e.message}` });
   }
@@ -361,15 +355,13 @@ async function plugin_init(pluginCtx) {
           allFiles.push({ file: f, path: currentPath });
         }
         for (var f of (list.folders || [])) {
-          // 跳过已存在的分类文件夹
           if (catFolderIds[f.folder_name]) continue;
-          // 检查是否已创建的分类文件夹
           var cat = classifyFile(f.folder_name);
           if (f.folder_name === cat && f.folder_name !== '其他') {
             catFolderIds[f.folder_name] = f.folder_id;
-            continue; // 文件在里面，不需要再次移动
+            continue;
           }
-          await walk(f.folder_id, currentPath + f.folder_id + '/');
+          await walk(f.folder_id, f.folder_id);
         }
       }
 
@@ -386,7 +378,7 @@ async function plugin_init(pluginCtx) {
       }
       for (var f of (root.folders || [])) {
         if (!catFolderIds[f.folder_name]) {
-          await walk(f.folder_id, '/' + f.folder_id + '/');
+          await walk(f.folder_id, f.folder_id + '/');
         }
       }
 
@@ -411,12 +403,12 @@ async function plugin_init(pluginCtx) {
             group_id: gid,
             file_id: file.file_id || file.fid,
             current_parent_directory: item.path,
-            target_parent_directory: '/' + catFolderIds[cat],
+            target_parent_directory: catFolderIds[cat],
           });
           ok++;
         } catch(e) { fail++; }
       }
-      res.json({ ok: true, moved: ok, failed: fail });
+      res.json({ ok: true, total: allFiles.length, moved: ok, failed: fail });
     } catch(e) { res.status(500).json({ error: e.message }); }
   });
 
