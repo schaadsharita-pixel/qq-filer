@@ -346,23 +346,75 @@ async function plugin_init(pluginCtx) {
     } catch(e) { res.json([]); }
   });
 
-  // API: 智能整理
+  // API: 智能整理（在线分类，在QQ群里创建文件夹并移动文件）
   ctx.router.postNoAuth('/auto-move/:gid', async (req, res) => {
     try {
       var gid = parseInt(req.params.gid);
+
+      // 收集所有文件（含子文件夹）
+      var allFiles = [];
+      var catFolderIds = {};
+
+      async function walk(folderId, currentPath) {
+        var list = await ctx.actions.call('get_group_files_by_folder', { group_id: gid, folder_id: folderId });
+        for (var f of (list.files || [])) {
+          allFiles.push({ file: f, path: currentPath });
+        }
+        for (var f of (list.folders || [])) {
+          // 跳过已存在的分类文件夹
+          if (catFolderIds[f.folder_name]) continue;
+          // 检查是否已创建的分类文件夹
+          var cat = classifyFile(f.folder_name);
+          if (f.folder_name === cat && f.folder_name !== '其他') {
+            catFolderIds[f.folder_name] = f.folder_id;
+            continue; // 文件在里面，不需要再次移动
+          }
+          await walk(f.folder_id, currentPath + f.folder_id + '/');
+        }
+      }
+
+      // 先获取根目录
       var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
-      var allFiles = [...(root.files || [])];
-      for (var f of (root.folders || [])) { try { var sub = await ctx.actions.call('get_group_files_by_folder', { group_id: gid, folder_id: f.folder_id }); allFiles.push(...(sub.files || [])); } catch {} }
+      for (var f of (root.folders || [])) {
+        var cat = classifyFile(f.folder_name);
+        if (cat === f.folder_name && cat !== '其他') {
+          catFolderIds[f.folder_name] = f.folder_id;
+        }
+      }
+      for (var f of (root.files || [])) {
+        allFiles.push({ file: f, path: '/' });
+      }
+      for (var f of (root.folders || [])) {
+        if (!catFolderIds[f.folder_name]) {
+          await walk(f.folder_id, '/' + f.folder_id + '/');
+        }
+      }
+
       var ok = 0, fail = 0;
-      for (var file of allFiles) {
+      for (var item of allFiles) {
         try {
-          if ((file.file_size || file.size || 0) > CONFIG.maxFileSize) continue;
-          var url = await ctx.actions.call('get_group_file_url', { group_id: gid, file_id: file.file_id || file.fid, busid: file.busid || 0 });
-          var cat = classifyFile(file.file_name || file.name || '');
-          var name; try { var info = await ctx.actions.call('get_group_info', { group_id: gid }); name = info.group_name; } catch { name = '群_'+gid; }
-          await download(url.url || url, path.join(CONFIG.outputDir, sanitize(name), sanitize(cat), (file.file_name || file.name)));
+          var file = item.file;
+          var name = file.file_name || file.name || '';
+          var cat = classifyFile(name);
+          if (cat === '其他') { ok++; continue; } // 无法分类的不处理
+
+          // 创建分类文件夹（如果不存在）
+          if (!catFolderIds[cat]) {
+            try {
+              var created = await ctx.actions.call('create_group_file_folder', { group_id: gid, folder_name: cat });
+              catFolderIds[cat] = created.id || created.folder_id;
+            } catch(e) { fail++; continue; }
+          }
+
+          // 移动文件到分类文件夹
+          await ctx.actions.call('move_group_file', {
+            group_id: gid,
+            file_id: file.file_id || file.fid,
+            current_parent_directory: item.path,
+            target_parent_directory: '/' + catFolderIds[cat],
+          });
           ok++;
-        } catch { fail++; }
+        } catch(e) { fail++; }
       }
       res.json({ ok: true, moved: ok, failed: fail });
     } catch(e) { res.status(500).json({ error: e.message }); }
