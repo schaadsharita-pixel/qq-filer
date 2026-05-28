@@ -439,7 +439,16 @@ async function plugin_init(pluginCtx) {
             dlog('  创建文件夹: ' + cat);
             try {
               var created = await ctx.actions.call('create_group_file_folder', { group_id: gid, folder_name: cat });
-              catFolderIds[cat] = (typeof created === 'string') ? created : (created.id || created.folder_id || created.data);
+              var folderId = (typeof created === 'string') ? created : (created.id || created.folder_id);
+              // 有些返回格式嵌套在 result 或 groupItem 里
+              if (!folderId && created && created.groupItem && created.groupItem.folderInfo) {
+                folderId = created.groupItem.folderInfo.folderId;
+              }
+              if (!folderId && created && created.data) {
+                folderId = typeof created.data === 'string' ? created.data : (created.data.id || created.data.folder_id);
+              }
+              if (!folderId) { dlog('  无法获取文件夹ID，可能无权限: ' + JSON.stringify(created).slice(0,100)); fail++; continue; }
+              catFolderIds[cat] = folderId;
               dlog('  创建成功: ' + cat + ' → ' + catFolderIds[cat]);
             } catch(e) {
               dlog('  创建失败: ' + (e.message || e));
