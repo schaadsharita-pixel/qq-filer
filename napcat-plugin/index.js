@@ -247,7 +247,7 @@ async function plugin_init(pluginCtx) {
   // API: 基本信息
   ctx.router.getNoAuth('/info', async (req, res) => {
     try {
-      var info = await ctx.actions.call('get_login_info');
+      var info = await ctx.actions.call('get_login_info', {});
       res.json({ user_id: info.user_id, nickname: info.nickname });
     } catch(e) { res.json({}); }
   });
@@ -255,7 +255,7 @@ async function plugin_init(pluginCtx) {
   // API: 群列表
   ctx.router.getNoAuth('/groups', async (req, res) => {
     try {
-      var raw = await ctx.actions.call('get_group_list');
+      var raw = await ctx.actions.call('get_group_list', {});
       var list = Array.isArray(raw) ? raw : (raw && raw.data ? raw.data : []);
       var groups = [];
       for (var i = 0; i < list.length; i++) {
@@ -377,7 +377,7 @@ async function plugin_init(pluginCtx) {
     } catch(e) { res.send(''); }
   });
   try {
-    const loginInfo = await ctx.actions.call('get_login_info');
+    const loginInfo = await ctx.actions.call('get_login_info', {});
     logger.info(`✅ 已登录账号: ${loginInfo.nickname} (${loginInfo.user_id})`);
   } catch {}
 }
