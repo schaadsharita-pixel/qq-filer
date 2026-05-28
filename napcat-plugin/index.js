@@ -223,6 +223,9 @@ async function plugin_init(pluginCtx) {
   logger.info('   /status — 查看状态');
   logger.info('');
 
+  // 规则文件路径（存在插件的配置目录，不会随代码更新丢失）
+  var RULES_FILE = path.join(path.dirname(ctx.configPath), 'auto_rules.json');
+
   // 配置 UI 在 module 顶层已定义（静态），此处仅加载已保存的配置
   try {
     if (fs.existsSync(ctx.configPath)) {
