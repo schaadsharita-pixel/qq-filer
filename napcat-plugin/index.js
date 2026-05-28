@@ -245,7 +245,7 @@ async function plugin_init(pluginCtx) {
   // ════════════════════════════════════
 
   // API: 基本信息
-  ctx.router.get('/info', async (req, res) => {
+  ctx.router.getNoAuth('/info', async (req, res) => {
     try {
       var info = await ctx.actions.call('get_login_info');
       res.json({ user_id: info.user_id, nickname: info.nickname });
@@ -253,7 +253,7 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 群列表
-  ctx.router.get('/groups', async (req, res) => {
+  ctx.router.getNoAuth('/groups', async (req, res) => {
     try {
       var raw = await ctx.actions.call('get_group_list');
       var list = Array.isArray(raw) ? raw : (raw && raw.data ? raw.data : []);
@@ -276,7 +276,7 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 扫描群文件（树形）
-  ctx.router.post('/scan-tree/:gid', async (req, res) => {
+  ctx.router.postNoAuth('/scan-tree/:gid', async (req, res) => {
     var gid = parseInt(req.params.gid);
     try {
       async function walk(fid) {
@@ -291,7 +291,7 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 下载文件到本地
-  ctx.router.post('/move', async (req, res) => {
+  ctx.router.postNoAuth('/move', async (req, res) => {
     try {
       var body = req.body || {};
       var files = body.files || [body];
@@ -311,14 +311,14 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 规则
-  ctx.router.get('/rules', async (req, res) => {
+  ctx.router.getNoAuth('/rules', async (req, res) => {
     try {
       if (fs.existsSync(RULES_FILE)) return res.json(JSON.parse(fs.readFileSync(RULES_FILE, 'utf8')));
     } catch {}
     res.json({ rules: [], whitelist: ['重要','合同','协议','模板','安装包'] });
   });
 
-  ctx.router.post('/rules', async (req, res) => {
+  ctx.router.postNoAuth('/rules', async (req, res) => {
     try {
       var dir = path.dirname(RULES_FILE);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -328,7 +328,7 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 本地文件
-  ctx.router.get('/files', async (req, res) => {
+  ctx.router.getNoAuth('/files', async (req, res) => {
     try {
       var result = [];
       if (fs.existsSync(CONFIG.outputDir)) {
@@ -347,7 +347,7 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 智能整理
-  ctx.router.post('/auto-move/:gid', async (req, res) => {
+  ctx.router.postNoAuth('/auto-move/:gid', async (req, res) => {
     try {
       var gid = parseInt(req.params.gid);
       var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
@@ -369,7 +369,7 @@ async function plugin_init(pluginCtx) {
   });
 
   // API: 日志
-  ctx.router.get('/log', async (req, res) => {
+  ctx.router.getNoAuth('/log', async (req, res) => {
     try {
       var lf = path.resolve(ctx.pluginPath, '..', '..', 'qqfiler.log');
       if (fs.existsSync(lf)) return res.send(fs.readFileSync(lf, 'utf8'));
