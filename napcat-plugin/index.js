@@ -355,8 +355,12 @@ async function plugin_init(pluginCtx) {
 
   // API: 智能整理（在线分类，在QQ群里创建文件夹并移动文件）
   ctx.router.postNoAuth('/auto-move/:gid', async (req, res) => {
-    var logLines = [];
-    function dlog(msg) { logLines.push(msg); logger ? logger.info(msg) : console.log(msg); }
+    var logFile = path.join(ctx.pluginPath, 'classify_debug.log');
+    function dlog(msg) {
+      var line = new Date().toLocaleTimeString() + ' ' + msg;
+      try { fs.appendFileSync(logFile, line + '\n', 'utf8'); } catch {}
+      if (logger) logger.info(msg);
+    }
     try {
       var gid = parseInt(req.params.gid);
       dlog('=== 开始智能分类 群 ' + gid + ' ===');
