@@ -240,6 +240,141 @@ async function plugin_init(pluginCtx) {
   });
   ctx.router.static('/webui', 'webui');
 
+  // ════════════════════════════════════
+  // API 路由
+  // ════════════════════════════════════
+
+  // API: 基本信息
+  ctx.router.get('/api/info', async (req, res) => {
+    try {
+      var info = await ctx.actions.call('get_login_info');
+      res.json({ user_id: info.user_id, nickname: info.nickname });
+    } catch(e) { res.json({}); }
+  });
+
+  // API: 群列表
+  ctx.router.get('/api/groups', async (req, res) => {
+    try {
+      var list = await ctx.actions.call('get_group_list');
+      var groups = [];
+      for (var i = 0; i < list.length; i++) {
+        var g = list[i];
+        var localFiles = 0;
+        var dir = path.join(CONFIG.outputDir, sanitize(g.group_name || '群_'+g.group_id));
+        if (fs.existsSync(dir)) {
+          var entries = fs.readdirSync(dir);
+          for (var j = 0; j < entries.length; j++) {
+            var fp = path.join(dir, entries[j]);
+            if (fs.statSync(fp).isDirectory()) localFiles += fs.readdirSync(fp).length;
+          }
+        }
+        groups.push({ id: g.group_id, name: g.group_name, localFiles: localFiles, groupFiles: 0 });
+      }
+      res.json(groups);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // API: 扫描群文件（树形）
+  ctx.router.post('/api/scan-tree/:gid', async (req, res) => {
+    var gid = parseInt(req.params.gid);
+    try {
+      async function walk(fid) {
+        var list = fid ? await ctx.actions.call('get_group_files_by_folder', { group_id: gid, folder_id: fid }) : await ctx.actions.call('get_group_root_files', { group_id: gid });
+        var files = (list.files || []).map(function(f) { return { id: f.file_id || f.fid, name: f.file_name || f.name, size: f.file_size || f.size || 0, busid: f.busid || 0, category: classifyFile(f.file_name || f.name) }; });
+        var folders = [];
+        for (var i = 0; i < (list.folders || []).length; i++) { folders.push({ name: list.folders[i].folder_name, id: list.folders[i].folder_id, children: await walk(list.folders[i].folder_id) }); }
+        return { files: files, folders: folders };
+      }
+      res.json({ ok: true, tree: await walk(null) });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // API: 下载文件到本地
+  ctx.router.post('/api/move', async (req, res) => {
+    try {
+      var body = req.body || {};
+      var files = body.files || [body];
+      var ok = 0, fail = 0;
+      for (var i = 0; i < files.length; i++) {
+        try {
+          var f = files[i];
+          var url = await ctx.actions.call('get_group_file_url', { group_id: f.group_id, file_id: f.id, busid: f.busid || 0 });
+          var cat = classifyFile(f.name);
+          var dest = path.join(CONFIG.outputDir, sanitize(f.group_name || '群_'+f.group_id), sanitize(cat), f.name);
+          if (!fs.existsSync(path.dirname(dest))) fs.mkdirSync(path.dirname(dest), { recursive: true });
+          await download(url.url || url, dest); ok++;
+        } catch(e) { fail++; }
+      }
+      res.json({ ok: true, moved: ok, failed: fail });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // API: 规则
+  ctx.router.get('/api/rules', async (req, res) => {
+    try {
+      if (fs.existsSync(RULES_FILE)) return res.json(JSON.parse(fs.readFileSync(RULES_FILE, 'utf8')));
+    } catch {}
+    res.json({ rules: [], whitelist: ['重要','合同','协议','模板','安装包'] });
+  });
+
+  ctx.router.post('/api/rules', async (req, res) => {
+    try {
+      var dir = path.dirname(RULES_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(RULES_FILE, JSON.stringify(req.body, null, 2));
+      res.json({ ok: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // API: 本地文件
+  ctx.router.get('/api/files', async (req, res) => {
+    try {
+      var result = [];
+      if (fs.existsSync(CONFIG.outputDir)) {
+        for (var g of fs.readdirSync(CONFIG.outputDir)) {
+          var gd = path.join(CONFIG.outputDir, g);
+          if (!fs.statSync(gd).isDirectory()) continue;
+          for (var c of fs.readdirSync(gd)) {
+            var cd = path.join(gd, c);
+            if (!fs.statSync(cd).isDirectory()) continue;
+            for (var e of fs.readdirSync(cd)) { result.push({ name: e, group: g, category: c }); }
+          }
+        }
+      }
+      res.json(result);
+    } catch(e) { res.json([]); }
+  });
+
+  // API: 智能整理
+  ctx.router.post('/api/auto-move/:gid', async (req, res) => {
+    try {
+      var gid = parseInt(req.params.gid);
+      var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
+      var allFiles = [...(root.files || [])];
+      for (var f of (root.folders || [])) { try { var sub = await ctx.actions.call('get_group_files_by_folder', { group_id: gid, folder_id: f.folder_id }); allFiles.push(...(sub.files || [])); } catch {} }
+      var ok = 0, fail = 0;
+      for (var file of allFiles) {
+        try {
+          if ((file.file_size || file.size || 0) > CONFIG.maxFileSize) continue;
+          var url = await ctx.actions.call('get_group_file_url', { group_id: gid, file_id: file.file_id || file.fid, busid: file.busid || 0 });
+          var cat = classifyFile(file.file_name || file.name || '');
+          var name; try { var info = await ctx.actions.call('get_group_info', { group_id: gid }); name = info.group_name; } catch { name = '群_'+gid; }
+          await download(url.url || url, path.join(CONFIG.outputDir, sanitize(name), sanitize(cat), (file.file_name || file.name)));
+          ok++;
+        } catch { fail++; }
+      }
+      res.json({ ok: true, moved: ok, failed: fail });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // API: 日志
+  ctx.router.get('/api/log', async (req, res) => {
+    try {
+      var lf = path.resolve(ctx.pluginPath, '..', '..', 'qqfiler.log');
+      if (fs.existsSync(lf)) return res.send(fs.readFileSync(lf, 'utf8'));
+      res.send('');
+    } catch(e) { res.send(''); }
+  });
   try {
     const loginInfo = await ctx.actions.call('get_login_info');
     logger.info(`✅ 已登录账号: ${loginInfo.nickname} (${loginInfo.user_id})`);
