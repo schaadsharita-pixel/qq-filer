@@ -43,11 +43,16 @@ const CATEGORIES = [
 
 function classifyFile(filename) {
   const name = filename.toLowerCase();
-  // 只匹配文件名关键词，不看后缀名
+  const ext = path.extname(name);
+  // 先匹配关键词
   for (const cat of CATEGORIES) {
     for (const kw of cat.keywords) {
       if (name.includes(kw.toLowerCase())) return cat.name;
     }
+  }
+  // 没有关键词匹配，再看后缀名
+  for (const cat of CATEGORIES) {
+    if (cat.exts.includes(ext)) return cat.name;
   }
   return '📋 其他';
 }
