@@ -43,16 +43,11 @@ const CATEGORIES = [
 
 function classifyFile(filename) {
   const name = filename.toLowerCase();
-  const ext = path.extname(name);
-  // 先匹配关键词
+  // 只看文件名是否包含关键词，不看后缀
   for (const cat of CATEGORIES) {
     for (const kw of cat.keywords) {
       if (name.includes(kw.toLowerCase())) return cat.name;
     }
-  }
-  // 没有关键词匹配，再看后缀名
-  for (const cat of CATEGORIES) {
-    if (cat.exts.includes(ext)) return cat.name;
   }
   return '📋 其他';
 }
@@ -365,6 +360,27 @@ async function plugin_init(pluginCtx) {
       var gid = parseInt(req.params.gid);
       dlog('=== 开始智能分类 群 ' + gid + ' ===');
 
+      // 加载自定义规则
+      var customRules = [];
+      try { if (fs.existsSync(RULES_FILE)) { var rd = JSON.parse(fs.readFileSync(RULES_FILE, 'utf8')); customRules = rd.rules || []; } } catch {}
+      dlog('自定义规则: ' + customRules.length + ' 条');
+
+      // 自定义分类（先查规则，再查内置关键词）
+      function smartClassify(name) {
+        var lower = name.toLowerCase();
+        // 先查自定义规则
+        for (var i = 0; i < customRules.length; i++) {
+          var r = customRules[i];
+          if (r.enabled !== false && r.keyword && lower.includes(r.keyword.toLowerCase())) {
+            dlog('  规则匹配: ' + name + ' → ' + r.keyword + ' → ' + r.folder);
+            return r.folder;
+          }
+        }
+        // 再查内置关键词
+        var builtin = classifyFile(name);
+        return builtin;
+      }
+
       // 收集所有文件（含子文件夹）
       var allFiles = [];
       var catFolderIds = {};
@@ -414,7 +430,7 @@ async function plugin_init(pluginCtx) {
           var file = item.file;
           var name = file.file_name || file.name || '';
           var cid = file.file_id || file.fid || '(无ID)';
-          var cat = classifyFile(name);
+          var cat = smartClassify(name);
           dlog('  文件: ' + name + ' (id=' + cid + ', 路径=' + item.path + ') → 分类: ' + cat);
           if (cat === '其他') { ok++; continue; }
 
