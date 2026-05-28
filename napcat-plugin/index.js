@@ -255,7 +255,8 @@ async function plugin_init(pluginCtx) {
   // API: 群列表
   ctx.router.get('/api/groups', async (req, res) => {
     try {
-      var list = await ctx.actions.call('get_group_list');
+      var raw = await ctx.actions.call('get_group_list');
+      var list = Array.isArray(raw) ? raw : (raw && raw.data ? raw.data : []);
       var groups = [];
       for (var i = 0; i < list.length; i++) {
         var g = list[i];
