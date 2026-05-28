@@ -350,22 +350,27 @@ async function plugin_init(pluginCtx) {
 
   // API: 智能整理（在线分类，在QQ群里创建文件夹并移动文件）
   ctx.router.postNoAuth('/auto-move/:gid', async (req, res) => {
+    var logLines = [];
+    function dlog(msg) { logLines.push(msg); logger ? logger.info(msg) : console.log(msg); }
     try {
       var gid = parseInt(req.params.gid);
+      dlog('=== 开始智能分类 群 ' + gid + ' ===');
 
       // 收集所有文件（含子文件夹）
       var allFiles = [];
       var catFolderIds = {};
 
       async function walk(folderId, currentPath) {
+        dlog('  扫描文件夹: ' + folderId);
         var list = await ctx.actions.call('get_group_files_by_folder', { group_id: gid, folder_id: folderId });
         for (var f of (list.files || [])) {
           allFiles.push({ file: f, path: currentPath });
         }
         for (var f of (list.folders || [])) {
-          if (catFolderIds[f.folder_name]) continue;
+          if (catFolderIds[f.folder_name]) { dlog('  跳过已有分类文件夹: ' + f.folder_name); continue; }
           if (isCategoryName(f.folder_name)) {
             catFolderIds[f.folder_name] = f.folder_id;
+            dlog('  识别到已有分类文件夹: ' + f.folder_name + ' → ' + f.folder_id);
             continue;
           }
           await walk(f.folder_id, f.folder_id);
@@ -373,10 +378,15 @@ async function plugin_init(pluginCtx) {
       }
 
       // 先获取根目录
+      dlog('获取根目录...');
       var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
+      dlog('根目录: ' + (root.files||[]).length + ' 个文件, ' + (root.folders||[]).length + ' 个文件夹');
       for (var f of (root.folders || [])) {
         if (isCategoryName(f.folder_name)) {
           catFolderIds[f.folder_name] = f.folder_id;
+          dlog('根目录分类文件夹: ' + f.folder_name + ' → ' + f.folder_id);
+        } else {
+          dlog('根目录非分类文件夹(将遍历): ' + f.folder_name);
         }
       }
       for (var f of (root.files || [])) {
@@ -384,42 +394,59 @@ async function plugin_init(pluginCtx) {
       }
       for (var f of (root.folders || [])) {
         if (!catFolderIds[f.folder_name]) {
-          await walk(f.folder_id, f.folder_id + '/');
+          await walk(f.folder_id, f.folder_id);
         }
       }
+      dlog('共收集 ' + allFiles.length + ' 个文件');
 
       var ok = 0, fail = 0;
       for (var item of allFiles) {
         try {
           var file = item.file;
           var name = file.file_name || file.name || '';
+          var cid = file.file_id || file.fid || '(无ID)';
           var cat = classifyFile(name);
-          if (cat === '其他') { ok++; continue; } // 无法分类的不处理
+          dlog('  文件: ' + name + ' (id=' + cid + ', 路径=' + item.path + ') → 分类: ' + cat);
+          if (cat === '其他') { ok++; continue; }
 
           // 创建分类文件夹（如果不存在）
           if (!catFolderIds[cat]) {
+            dlog('  创建文件夹: ' + cat);
             try {
               var created = await ctx.actions.call('create_group_file_folder', { group_id: gid, folder_name: cat });
               catFolderIds[cat] = created.id || created.folder_id;
-            } catch(e) { fail++; continue; }
+              dlog('  创建成功: ' + cat + ' → ' + catFolderIds[cat]);
+            } catch(e) {
+              dlog('  创建失败: ' + (e.message || e));
+              fail++; continue;
+            }
           }
 
           // 确保目标目录有 / 前缀
           var targetDir = catFolderIds[cat];
           if (targetDir && !targetDir.startsWith('/')) targetDir = '/' + targetDir;
+          dlog('  移动: ' + name + ' → ' + targetDir);
 
           // 移动文件到分类文件夹
           await ctx.actions.call('move_group_file', {
             group_id: String(gid),
-            file_id: file.file_id || file.fid,
+            file_id: cid,
             current_parent_directory: item.path || '/',
             target_parent_directory: targetDir,
           });
+          dlog('  移动成功: ' + name);
           ok++;
-        } catch(e) { fail++; }
+        } catch(e) {
+          dlog('  移动失败: ' + (e.message || e));
+          fail++;
+        }
       }
+      dlog('=== 完成: 共 ' + allFiles.length + ' 个, 移动 ' + ok + ', 失败 ' + fail + ' ===');
       res.json({ ok: true, total: allFiles.length, moved: ok, failed: fail });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+    } catch(e) {
+      dlog('❌ 整体错误: ' + (e.message || e));
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // API: 日志
