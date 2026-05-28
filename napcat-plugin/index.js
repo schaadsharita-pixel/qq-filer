@@ -381,31 +381,30 @@ async function plugin_init(pluginCtx) {
         return builtin;
       }
 
-      // 收集所有文件（含子文件夹）
+      // 收集所有文件（全部文件夹都遍历，已分类的也要重新分）
       var allFiles = [];
       var catFolderIds = {};
 
       async function walk(folderId, currentPath) {
-        dlog('  扫描文件夹: ' + folderId);
         var list = await ctx.actions.call('get_group_files_by_folder', { group_id: gid, folder_id: folderId });
         for (var f of (list.files || [])) {
           allFiles.push({ file: f, path: currentPath });
         }
         for (var f of (list.folders || [])) {
-          if (catFolderIds[f.folder_name]) { dlog('  跳过已有分类文件夹: ' + f.folder_name); continue; }
-          if (isCategoryName(f.folder_name) || customRules.some(function(r) { return r.folder === f.folder_name; })) {
+          // 记录已有分类文件夹（用做目标）
+          if (!catFolderIds[f.folder_name] && (isCategoryName(f.folder_name) || customRules.some(function(r) { return r.folder === f.folder_name; }))) {
             catFolderIds[f.folder_name] = f.folder_id;
-            dlog('  识别到已有分类文件夹: ' + f.folder_name + ' → ' + f.folder_id);
-            continue;
           }
+          // 继续遍历子文件夹，收集里面的文件重新分类
           await walk(f.folder_id, f.folder_id);
         }
       }
 
-      // 先获取根目录
+      // 获取根目录
       dlog('获取根目录...');
       var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
       dlog('根目录: ' + (root.files||[]).length + ' 个文件, ' + (root.folders||[]).length + ' 个文件夹');
+      // 先记录已有分类文件夹
       for (var f of (root.folders || [])) {
         if (isCategoryName(f.folder_name) || customRules.some(function(r) { return r.folder === f.folder_name; })) {
           catFolderIds[f.folder_name] = f.folder_id;
@@ -414,15 +413,14 @@ async function plugin_init(pluginCtx) {
           dlog('根目录非分类文件夹(将遍历): ' + f.folder_name);
         }
       }
+      // 收集根目录文件 + 遍历所有文件夹
       for (var f of (root.files || [])) {
         allFiles.push({ file: f, path: '/' });
       }
       for (var f of (root.folders || [])) {
-        if (!catFolderIds[f.folder_name]) {
-          await walk(f.folder_id, f.folder_id);
-        }
+        await walk(f.folder_id, f.folder_id);
       }
-      dlog('共收集 ' + allFiles.length + ' 个文件');
+      dlog('共收集 ' + allFiles.length + ' 个文件（含已分类文件夹内的）');
 
       var ok = 0, fail = 0;
       for (var item of allFiles) {
