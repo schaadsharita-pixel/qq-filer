@@ -393,7 +393,7 @@ async function plugin_init(pluginCtx) {
         }
         for (var f of (list.folders || [])) {
           if (catFolderIds[f.folder_name]) { dlog('  跳过已有分类文件夹: ' + f.folder_name); continue; }
-          if (isCategoryName(f.folder_name)) {
+          if (isCategoryName(f.folder_name) || customRules.some(function(r) { return r.folder === f.folder_name; })) {
             catFolderIds[f.folder_name] = f.folder_id;
             dlog('  识别到已有分类文件夹: ' + f.folder_name + ' → ' + f.folder_id);
             continue;
@@ -407,7 +407,7 @@ async function plugin_init(pluginCtx) {
       var root = await ctx.actions.call('get_group_root_files', { group_id: gid });
       dlog('根目录: ' + (root.files||[]).length + ' 个文件, ' + (root.folders||[]).length + ' 个文件夹');
       for (var f of (root.folders || [])) {
-        if (isCategoryName(f.folder_name)) {
+        if (isCategoryName(f.folder_name) || customRules.some(function(r) { return r.folder === f.folder_name; })) {
           catFolderIds[f.folder_name] = f.folder_id;
           dlog('根目录分类文件夹: ' + f.folder_name + ' → ' + f.folder_id);
         } else {
@@ -439,7 +439,7 @@ async function plugin_init(pluginCtx) {
             dlog('  创建文件夹: ' + cat);
             try {
               var created = await ctx.actions.call('create_group_file_folder', { group_id: gid, folder_name: cat });
-              catFolderIds[cat] = created.id || created.folder_id;
+              catFolderIds[cat] = (typeof created === 'string') ? created : (created.id || created.folder_id || created.data);
               dlog('  创建成功: ' + cat + ' → ' + catFolderIds[cat]);
             } catch(e) {
               dlog('  创建失败: ' + (e.message || e));
