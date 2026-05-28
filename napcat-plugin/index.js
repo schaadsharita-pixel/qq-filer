@@ -407,12 +407,16 @@ async function plugin_init(pluginCtx) {
             } catch(e) { fail++; continue; }
           }
 
+          // 确保目标目录有 / 前缀
+          var targetDir = catFolderIds[cat];
+          if (targetDir && !targetDir.startsWith('/')) targetDir = '/' + targetDir;
+
           // 移动文件到分类文件夹
           await ctx.actions.call('move_group_file', {
-            group_id: gid,
+            group_id: String(gid),
             file_id: file.file_id || file.fid,
-            current_parent_directory: item.path,
-            target_parent_directory: catFolderIds[cat],
+            current_parent_directory: item.path || '/',
+            target_parent_directory: targetDir,
           });
           ok++;
         } catch(e) { fail++; }
@@ -429,6 +433,14 @@ async function plugin_init(pluginCtx) {
       res.send('');
     } catch(e) { res.send(''); }
   });
+  // 自动打开 WebUI（延迟等 WebUI 就绪）
+  try {
+    var cp = require('child_process');
+    var webuiUrl = 'http://127.0.0.1:' + (process.env.NAPCAT_WEBUI_PORT || '6099') + '/webui';
+    setTimeout(function() { cp.exec('start "" "' + webuiUrl + '"', function() {}); }, 3000);
+    logger.info('🌐 3秒后自动打开 WebUI: ' + webuiUrl);
+  } catch {}
+
   try {
     const loginInfo = await ctx.actions.call('get_login_info', {});
     logger.info(`✅ 已登录账号: ${loginInfo.nickname} (${loginInfo.user_id})`);
